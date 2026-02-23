@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_db
-from app.schemas.load import LoadCreate, LoadResponse, LoadUpdate
+from app.schemas.load import LoadCreate, LoadResponse
 from app.services.load_service import load_service
 
 router = APIRouter()
