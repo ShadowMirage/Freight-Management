@@ -9,6 +9,9 @@ class BookingBase(BaseModel):
     load_id: uuid.UUID
     price: float
     status: str = "confirmed"
+    payment_status: str = "PENDING"
+    payment_link: Optional[str] = None
+    payment_reference_id: Optional[str] = None
 
 
 class BookingCreate(BookingBase):

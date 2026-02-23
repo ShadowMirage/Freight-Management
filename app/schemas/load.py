@@ -13,6 +13,7 @@ class LoadBase(BaseModel):
     drop_lat: float
     drop_lng: float
     weight: float
+    category: str
     deadline: datetime
     status: str = "open"
 

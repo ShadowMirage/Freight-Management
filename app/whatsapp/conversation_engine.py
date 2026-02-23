@@ -53,9 +53,9 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
             return
 
         step = session_obj.current_step
-        if step in ["pickup_city", "drop_city"]:
+        if step in ["pickup_city", "drop_city", "category"]:
             if not validate_city(text):
-                await send_message(phone, "⚠️ Enter a valid city name (letters only). Example: Jaipur")
+                await send_message(phone, "⚠️ Enter a valid city or category name (letters only). Example: Jaipur")
                 return
         elif step in ["capacity_tons", "weight_tons"]:
             if not validate_capacity(text):
@@ -76,6 +76,31 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
             await send_message(phone, "Great! Let's post a load. Please enter the pickup city:")
         elif text_lower == "help":
             await send_message(phone, "Welcome to Freight Matching! You can say 'post truck' or 'post load' to get started.")
+        elif text_lower.startswith("book "):
+            parts = text_lower.split()
+            if len(parts) == 2 and parts[1].isdigit():
+                index = int(parts[1])
+                from app.whatsapp.memcache import PENDING_MATCHES
+                pending = PENDING_MATCHES.get(phone)
+                if not pending:
+                    await send_message(phone, "⚠️ No active matches to book. Please post a load or truck first.")
+                    return
+                matches = pending.get("matches", [])
+                if index < 1 or index > len(matches):
+                    await send_message(phone, f"⚠️ Invalid selection. Please choose a number between 1 and {len(matches)}.")
+                    return
+                selected = matches[index - 1]
+                
+                await conversation_service.start_session(db, phone, flow="booking", step="confirm_booking")
+                await conversation_service.update_step(db, phone, step="confirm_booking", new_data={
+                    "my_type": pending["type"],
+                    "my_id": pending["my_id"],
+                    "match_id": selected["id"],
+                    "details": selected["details"]
+                })
+                await send_message(phone, f"You selected:\n{selected['details']}\nReply CONFIRM to proceed or CANCEL to abort.")
+            else:
+                await send_message(phone, "I didn't quite understand that. Please reply with 'help' for instructions.")
         else:
             await send_message(phone, "I didn't quite understand that. Please reply with 'help' for instructions.")
         return
@@ -155,6 +180,14 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
                 
                 # Format Matches and send
                 from app.whatsapp.formatters import format_truck_matches
+                from app.whatsapp.memcache import PENDING_MATCHES
+                
+                if matches:
+                    PENDING_MATCHES[phone] = {
+                        "type": "truck",
+                        "my_id": str(truck.id),
+                        "matches": [{"id": str(m.id), "details": f"{m.weight} tons - {m.pickup_city} -> {m.drop_city} - {m.deadline.strftime('%d-%m-%Y')}"} for m in matches]
+                    }
                 await send_message(phone, format_truck_matches(matches))
                 
             except ValidationError as e:
@@ -187,11 +220,15 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
         elif step == "weight_tons":
             try:
                 val = CapacityValidator(capacity=int(text))
-                await conversation_service.update_step(db, phone, step="pickup_date", new_data={"weight_tons": val.capacity})
-                await send_message(phone, "Noted. When is the pickup date? Please use the format DD-MM-YYYY:")
+                await conversation_service.update_step(db, phone, step="category", new_data={"weight_tons": val.capacity})
+                await send_message(phone, "Noted. What is the category of the load? (e.g., General, Electronics):")
             except (ValueError, ValidationError):
                 logger.warning(json.dumps({"action": "validation_failed", "step": step, "phone": phone, "input": text}))
                 await send_message(phone, "Invalid weight. Must be a number between 1 and 100. Please enter the weight again:")
+
+        elif step == "category":
+            await conversation_service.update_step(db, phone, step="pickup_date", new_data={"category": text.strip()})
+            await send_message(phone, "Got it. When is the pickup date? Please use the format DD-MM-YYYY:")
 
         elif step == "pickup_date":
             try:
@@ -220,7 +257,8 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
                     drop_lat=0.0,
                     drop_lng=0.0,
                     deadline=date_obj,
-                    weight=float(final_data["weight_tons"])
+                    weight=float(final_data["weight_tons"]),
+                    category=final_data["category"]
                 )
                 load, matches = await load_service.create_with_matches(db=db, obj_in=load_in)
                 
@@ -237,9 +275,45 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
                 
                 # Format Matches and send
                 from app.whatsapp.formatters import format_load_matches
+                from app.whatsapp.memcache import PENDING_MATCHES
+                
+                if matches:
+                    PENDING_MATCHES[phone] = {
+                        "type": "load",
+                        "my_id": str(load.id),
+                        "matches": [{"id": str(m.id), "details": f"{m.capacity_available} tons - {m.source_city} -> {m.destination_city} - {m.departure_time.strftime('%d-%m-%Y')}"} for m in matches]
+                    }
                 await send_message(phone, format_load_matches(matches))
                 
             except ValidationError as e:
                 err_msg = e.errors()[0].get('msg', 'Invalid Date')
                 logger.warning(json.dumps({"action": "validation_failed", "step": step, "phone": phone, "error": err_msg}))
                 await send_message(phone, f"{err_msg}. Please enter the pickup date (DD-MM-YYYY) again:")
+
+    # 4. Active session: booking flow
+    elif session_obj.current_flow == "booking":
+        step = session_obj.current_step
+        if step == "confirm_booking":
+            if text_lower == "confirm":
+                data = session_obj.collected_data
+                from app.services.booking_service import booking_service
+                import uuid
+                
+                try:
+                    truck_id = uuid.UUID(data["my_id"] if data["my_type"] == "truck" else data["match_id"])
+                    load_id = uuid.UUID(data["match_id"] if data["my_type"] == "truck" else data["my_id"])
+                    
+                    booking, error = await booking_service.create_atomic_booking(db, truck_id, load_id)
+                    if error:
+                        await send_message(phone, f"⚠️ Booking failed: {error}")
+                    else:
+                        await send_message(phone, "Booking reserved successfully.\nPayment link will be generated shortly.")
+                except Exception as e:
+                    logger.error(f"Booking error: {str(e)}")
+                    await send_message(phone, "⚠️ An error occurred while creating booking.")
+                    
+                await conversation_service.clear_session(db, phone)
+                from app.whatsapp.memcache import PENDING_MATCHES
+                PENDING_MATCHES.pop(phone, None)
+            else:
+                await send_message(phone, "⚠️ Please reply CONFIRM to proceed or CANCEL to abort.")

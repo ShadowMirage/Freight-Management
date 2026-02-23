@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
@@ -23,6 +23,9 @@ class Booking(Base):
 
     price: Mapped[float]
     status: Mapped[str] = mapped_column(default="confirmed")
+    payment_status: Mapped[str] = mapped_column(String(20), default="PENDING")
+    payment_link: Mapped[str] = mapped_column(String(255), nullable=True)
+    payment_reference_id: Mapped[str] = mapped_column(String(100), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 

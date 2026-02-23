@@ -26,6 +26,7 @@ class Load(Base):
     drop_lng: Mapped[float]
 
     weight: Mapped[float]
+    category: Mapped[str] = mapped_column(String(50), default="General")
     deadline: Mapped[datetime]
 
     status: Mapped[str] = mapped_column(default="open", index=True)
