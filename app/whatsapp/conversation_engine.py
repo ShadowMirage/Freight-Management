@@ -303,7 +303,7 @@ async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
                     truck_id = uuid.UUID(data["my_id"] if data["my_type"] == "truck" else data["match_id"])
                     load_id = uuid.UUID(data["match_id"] if data["my_type"] == "truck" else data["my_id"])
                     
-                    booking, error = await booking_service.create_atomic_booking(db, truck_id, load_id)
+                    booking, error = await booking_service.create_atomic_booking(db, truck_id, load_id, 0.0)
                     if error:
                         await send_message(phone, f"⚠️ Booking failed: {error}")
                     else:

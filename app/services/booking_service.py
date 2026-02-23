@@ -14,7 +14,13 @@ from app.schemas.booking import BookingCreate, BookingUpdate
 from app.services.base import CRUDBase
 
 class CRUDBooking(CRUDBase[Booking, BookingCreate, BookingUpdate]):
-    async def create_atomic_booking(self, db: AsyncSession, truck_id: uuid.UUID, load_id: uuid.UUID) -> Tuple[Optional[Booking], Optional[str]]:
+    async def create_atomic_booking(
+        self,
+        db: AsyncSession,
+        truck_id: uuid.UUID,
+        load_id: uuid.UUID,
+        price: float
+    ) -> Tuple[Optional[Booking], Optional[str]]:
         # Deterministic Idempotency Reference 
         # (Concatenates truck and load ID to prevent duplicate exact pairings in quick succession)
         raw_ref = f"{truck_id}_{load_id}"
@@ -48,7 +54,7 @@ class CRUDBooking(CRUDBase[Booking, BookingCreate, BookingUpdate]):
         booking = Booking(
             truck_id=truck.id,
             load_id=load.id,
-            price=0.0,
+            price=price,
             status=BookingStatus.INITIATED,
             payment_status=PaymentStatus.PAYMENT_PENDING,
             booking_reference_id=reference_id,
