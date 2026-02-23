@@ -1,4 +1,5 @@
 import json
+import re
 from datetime import datetime
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,9 +13,58 @@ from app.services.truck_service import truck_service
 from app.models.user import User, UserRole
 from app.services.user_service import user_service
 
+def is_reserved_command(text: str) -> bool:
+    text_lower = text.lower().strip()
+    return text_lower in ["post truck", "post load", "help"] or text_lower.startswith("book")
+
+def is_cancel(text: str) -> bool:
+    return text.lower().strip() == "cancel"
+
+def validate_city(text: str) -> bool:
+    return bool(re.match(r"^[A-Za-z ]{2,50}$", text.strip()))
+
+def validate_capacity(text: str) -> bool:
+    try:
+        val = float(text.strip())
+        return 0 < val <= 100
+    except ValueError:
+        return False
+
+def validate_date(text: str) -> bool:
+    try:
+        dt = datetime.strptime(text.strip(), "%d-%m-%Y").date()
+        return dt >= datetime.utcnow().date()
+    except ValueError:
+        return False
+
 async def handle_conversation(phone: str, text: str, db: AsyncSession) -> None:
     session_obj = await conversation_service.get_active_session(db, phone)
     text_lower = text.lower().strip()
+
+    # Pre-step guards for active sessions
+    if session_obj:
+        if is_cancel(text):
+            await conversation_service.clear_session(db, phone)
+            await send_message(phone, "Flow cancelled. You may type 'post truck' or 'post load' to begin again.")
+            return
+            
+        if is_reserved_command(text):
+            await send_message(phone, "⚠️ You are currently in an active flow. Please complete it or type CANCEL to restart.")
+            return
+
+        step = session_obj.current_step
+        if step in ["pickup_city", "drop_city"]:
+            if not validate_city(text):
+                await send_message(phone, "⚠️ Enter a valid city name (letters only). Example: Jaipur")
+                return
+        elif step in ["capacity_tons", "weight_tons"]:
+            if not validate_capacity(text):
+                await send_message(phone, "⚠️ Enter a valid number between 1 and 100.")
+                return
+        elif step in ["available_date", "pickup_date"]:
+            if not validate_date(text):
+                await send_message(phone, "⚠️ Enter a valid future date in format DD-MM-YYYY.")
+                return
 
     # 1. No active session
     if not session_obj:
