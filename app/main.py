@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from app.core.config import settings
-from app.api.routes import users, trucks, loads, bookings
+from app.api.routes import users, trucks, loads, bookings, payments
 from app.whatsapp.webhook import router as whatsapp_router
 
 app = FastAPI(title=settings.PROJECT_NAME, openapi_url=f"{settings.API_V1_STR}/openapi.json")
@@ -10,6 +10,7 @@ app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["u
 app.include_router(trucks.router, prefix=f"{settings.API_V1_STR}/trucks", tags=["trucks"])
 app.include_router(loads.router, prefix=f"{settings.API_V1_STR}/loads", tags=["loads"])
 app.include_router(bookings.router, prefix=f"{settings.API_V1_STR}/bookings", tags=["bookings"])
+app.include_router(payments.router, prefix=f"{settings.API_V1_STR}/payments", tags=["payments"])
 
 # WhatsApp Webhook Router
 app.include_router(whatsapp_router, prefix=f"{settings.API_V1_STR}/whatsapp", tags=["whatsapp"])
@@ -17,3 +18,9 @@ app.include_router(whatsapp_router, prefix=f"{settings.API_V1_STR}/whatsapp", ta
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+@app.on_event("startup")
+async def startup_event():
+    import asyncio
+    from app.workers.expiry_worker import start_reservation_expiry_worker
+    asyncio.create_task(start_reservation_expiry_worker())

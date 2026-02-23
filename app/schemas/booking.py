@@ -4,14 +4,18 @@ from pydantic import BaseModel
 from datetime import datetime
 
 
+from app.models.enums import BookingStatus, PaymentStatus
+
 class BookingBase(BaseModel):
     truck_id: uuid.UUID
     load_id: uuid.UUID
     price: float
-    status: str = "confirmed"
-    payment_status: str = "PENDING"
+    status: str = BookingStatus.INITIATED
+    payment_status: str = PaymentStatus.PAYMENT_PENDING
     payment_link: Optional[str] = None
     payment_reference_id: Optional[str] = None
+    booking_reference_id: Optional[str] = None
+    payment_expires_at: Optional[datetime] = None
 
 
 class BookingCreate(BookingBase):
