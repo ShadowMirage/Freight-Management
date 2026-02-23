@@ -31,3 +31,11 @@ async def handle_unknown(phone: str) -> None:
         "phone": phone
     }))
     await send_message(phone, "I didn't quite understand that. Please reply with 'help' for instructions.")
+
+async def handle_booking_selection(phone: str, selection_index: int) -> None:
+    logger.info(json.dumps({
+        "action": "booking_attempt",
+        "phone": phone,
+        "selection": selection_index
+    }))
+    await send_message(phone, f"Noted. Your request to book option {selection_index} has been received. Our team will resolve this shortly.")

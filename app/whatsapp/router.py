@@ -20,6 +20,15 @@ async def route_intent(phone: str, text: str) -> None:
     elif "help" in text_lower:
         intent = "help"
         await handle_help(phone)
+    elif text_lower.startswith("book "):
+        intent = "book"
+        parts = text_lower.split()
+        if len(parts) == 2 and parts[1].isdigit():
+            from app.whatsapp.handlers import handle_booking_selection
+            await handle_booking_selection(phone, int(parts[1]))
+        else:
+            intent = "unknown"
+            await handle_unknown(phone)
     else:
         intent = "unknown"
         await handle_unknown(phone)
