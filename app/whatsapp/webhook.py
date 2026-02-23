@@ -59,7 +59,16 @@ async def receive_webhook(request: Request) -> Any:
                             "phone": phone,
                             "text": text
                         }))
-                        # Route message to intent
-                        await route_intent(phone, text)
+                        
+                        # Acquire DB Session from async session maker (since this is an event loop triggered fast background task)
+                        from app.db.session import AsyncSessionLocal
+                        from app.whatsapp.conversation_engine import handle_conversation
+                        
+                        async def process_msg():
+                            async with AsyncSessionLocal() as db_session:
+                                await handle_conversation(phone, text, db_session)
+                                
+                        import asyncio
+                        asyncio.create_task(process_msg())
 
     return Response(content="OK", status_code=200)

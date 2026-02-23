@@ -23,6 +23,7 @@ import app.models.user  # Import models here so Alembic can discover them
 import app.models.truck
 import app.models.load
 import app.models.booking
+import app.models.conversation_session
 target_metadata = Base.metadata
 
 from app.core.config import settings
