@@ -5,3 +5,5 @@ asyncpg
 alembic
 pydantic-settings
 passlib[bcrypt]
+pywa
+python-dotenv
