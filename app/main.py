@@ -19,8 +19,29 @@ app.include_router(whatsapp_router, prefix=f"{settings.API_V1_STR}/whatsapp", ta
 async def health_check():
     return {"status": "healthy"}
 
+@app.get("/health/full")
+async def health_check_full():
+    from app.system.diagnostics import run_startup_diagnostics
+    report = await run_startup_diagnostics()
+    return {
+        "status": "healthy" if not any(v.get("level") == "CRITICAL" and v.get("status") != "OK" for v in report.values()) else "unhealthy",
+        "diagnostics": report
+    }
+
 @app.on_event("startup")
 async def startup_event():
     import asyncio
     from app.workers.expiry_worker import start_reservation_expiry_worker
+    from app.system.diagnostics import run_startup_diagnostics, format_diagnostic_report
+    
+    # 1. Start Workers
     asyncio.create_task(start_reservation_expiry_worker())
+    
+    # 2. Run Diagnostics
+    report = await run_startup_diagnostics()
+    banner, critical_failure = format_diagnostic_report(report)
+    
+    print("\n" + banner + "\n")
+    
+    if critical_failure:
+        raise RuntimeError("Critical system failure during startup. Abandoning boot sequence.")

@@ -1,4 +1,5 @@
 import uuid
+import sqlalchemy as sa
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID
@@ -28,8 +29,12 @@ class Booking(Base):
     payment_link: Mapped[str] = mapped_column(String(255), nullable=True)
     payment_reference_id: Mapped[str] = mapped_column(String(100), nullable=True)
     
-    booking_reference_id: Mapped[str] = mapped_column(String(100), unique=True, index=True, nullable=True)
+    booking_reference_id: Mapped[str] = mapped_column(String(100), index=True, nullable=True)
     payment_expires_at: Mapped[datetime] = mapped_column(nullable=True)
+
+    __table_args__ = (
+        sa.UniqueConstraint('booking_reference_id', name='uq_bookings_booking_reference_id'),
+    )
 
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
 

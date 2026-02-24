@@ -24,11 +24,13 @@ services:
     volumes:
       - .:/app
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_SERVER=db
-      - POSTGRES_PORT=5432
-      - POSTGRES_DB=freight_db
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_NAME=freight_db
+      - WHATSAPP_TOKEN=dev_token
+      - WHATSAPP_VERIFY_TOKEN=dev_token
       - SECRET_KEY=dev_secret_key_change_in_production
     depends_on:
       db:

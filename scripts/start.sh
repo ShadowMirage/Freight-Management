@@ -1,14 +1,18 @@
-#!/bin/bash
+#!/bin/sh
 set -e
 
-# Apply wait-for-it pattern to wait for postgres
-echo "Waiting for PostgreSQL to start..."
-while ! pg_isready -h "$POSTGRES_SERVER" -p "$POSTGRES_PORT" -U "$POSTGRES_USER"; do
-    sleep 1
+echo "Waiting for postgres..."
+while ! nc -z db 5432; do
+  sleep 1
 done
+echo "PostgreSQL started"
 
-echo "Running migrations..."
-alembic upgrade head
+echo "Running Alembic migrations..."
+if ! alembic upgrade head; then
+    echo "CRITICAL: Alembic migrations failed!"
+    exit 1
+fi
+echo "Alembic migrations completed successfully."
 
-echo "Starting FastAPI application..."
-exec uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+echo "Starting FastAPI Application..."
+exec uvicorn app.main:app --host 0.0.0.0 --port 8000

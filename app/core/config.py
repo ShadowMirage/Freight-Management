@@ -5,15 +5,15 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
     
     # Database
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_SERVER: str = "localhost"
-    POSTGRES_PORT: str = "5432"
-    POSTGRES_DB: str = "freight_db"
+    DATABASE_HOST: str = "db"
+    DATABASE_PORT: int = 5432
+    DATABASE_USER: str = "postgres"
+    DATABASE_PASSWORD: str = "postgres"
+    DATABASE_NAME: str = "freight_db"
     
     @property
-    def SQLALCHEMY_DATABASE_URI(self) -> str:
-        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    def DATABASE_URL(self) -> str:
+        return f"postgresql+asyncpg://{self.DATABASE_USER}:{self.DATABASE_PASSWORD}@{self.DATABASE_HOST}:{self.DATABASE_PORT}/{self.DATABASE_NAME}"
         
     # Security
     SECRET_KEY: str = "CHANGE_ME_IN_PRODUCTION"

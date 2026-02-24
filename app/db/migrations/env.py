@@ -27,7 +27,7 @@ import app.models.conversation_session
 target_metadata = Base.metadata
 
 from app.core.config import settings
-config.set_main_option("sqlalchemy.url", settings.SQLALCHEMY_DATABASE_URI)
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
